@@ -1,14 +1,12 @@
-// App.jsx
 import React, { useState, useEffect } from 'react';
-import './App.css';
+import { Search, MessageCircle, User, LogOut, Plus, Calendar, Trash2 } from 'lucide-react';
 
 const API_BASE = '/api';
 
 // API 함수들
 const api = {
-  // 인증
-  signup: async (data) => {
-    const response = await fetch(`${API_BASE}/auth/signup`, {
+  login: async (data) => {
+    const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -17,8 +15,8 @@ const api = {
     return response.json();
   },
   
-  login: async (data) => {
-    const response = await fetch(`${API_BASE}/auth/login`, {
+  signup: async (data) => {
+    const response = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -43,7 +41,6 @@ const api = {
     return response.json();
   },
   
-  // 게시글
   getPosts: async (page = 1, limit = 10) => {
     const response = await fetch(`${API_BASE}/posts?page=${page}&limit=${limit}`);
     return response.json();
@@ -64,16 +61,6 @@ const api = {
     return response.json();
   },
   
-  updatePost: async (id, data) => {
-    const response = await fetch(`${API_BASE}/posts/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      credentials: 'include'
-    });
-    return response.json();
-  },
-  
   deletePost: async (id) => {
     const response = await fetch(`${API_BASE}/posts/${id}`, {
       method: 'DELETE',
@@ -85,36 +72,12 @@ const api = {
   searchPosts: async (query) => {
     const response = await fetch(`${API_BASE}/posts/search?q=${encodeURIComponent(query)}`);
     return response.json();
-  },
-  
-  // 댓글
-  getCommentsByPost: async (postId) => {
-    const response = await fetch(`${API_BASE}/comments/post/${postId}`);
-    return response.json();
-  },
-  
-  createComment: async (data) => {
-    const response = await fetch(`${API_BASE}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      credentials: 'include'
-    });
-    return response.json();
-  },
-  
-  deleteComment: async (id) => {
-    const response = await fetch(`${API_BASE}/comments/${id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
-    return response.json();
   }
 };
 
-// 로그인 컴포넌트
-function LoginForm({ onLogin, onToggleMode }) {
-  const [formData, setFormData] = useState({ user_id: '', password: '' });
+// 로그인 컴포넌트 (심플하게)
+function LoginForm({ onLogin }) {
+  const [formData, setFormData] = useState({ id: '', password: '', username: '' });
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -131,142 +94,233 @@ function LoginForm({ onLogin, onToggleMode }) {
         onLogin();
       }
     } catch (error) {
-      alert(`${isSignup ? '회원가입' : '로그인'} 실패: ${error.message}`);
+      alert(`${isSignup ? '회원가입' : '로그인'} 실패`);
     }
     setLoading(false);
   };
 
   return (
-    <div className="login-container">
-      <form onSubmit={handleSubmit} className="login-form">
-        <h2>{isSignup ? '회원가입' : '로그인'}</h2>
-        <input
-          type="text"
-          placeholder="사용자 ID"
-          value={formData.user_id}
-          onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-          required
-        />
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? '처리중...' : (isSignup ? '회원가입' : '로그인')}
-        </button>
-        <button type="button" onClick={() => setIsSignup(!isSignup)}>
-          {isSignup ? '로그인으로 전환' : '회원가입으로 전환'}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-// 게시글 목록 컴포넌트
-function PostList({ posts, onSelectPost, onDeletePost, currentUser }) {
-  return (
-    <div className="post-list">
-      <h3>게시글 목록</h3>
-      {posts.length === 0 ? (
-        <p>게시글이 없습니다.</p>
-      ) : (
-        posts.map(post => (
-          <div key={post.id} className="post-item">
-            <h4 onClick={() => onSelectPost(post.id)} style={{ cursor: 'pointer', color: 'blue' }}>
-              {post.title}
-            </h4>
-            <p>작성자: {post.author_id} | 작성일: {new Date(post.created_at).toLocaleDateString()}</p>
-            <p>{post.content.substring(0, 100)}...</p>
-            {post.author_id === currentUser && (
-              <button onClick={() => onDeletePost(post.id)} className="delete-btn">
-                삭제
-              </button>
-            )}
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
-// 게시글 상세 컴포넌트
-function PostDetail({ post, comments, onBack, onAddComment, onDeleteComment, currentUser }) {
-  const [commentContent, setCommentContent] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!commentContent.trim()) return;
-    
-    setLoading(true);
-    try {
-      await onAddComment(post.id, commentContent);
-      setCommentContent('');
-    } catch (error) {
-      alert('댓글 작성 실패');
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div className="post-detail">
-      <button onClick={onBack}>← 목록으로</button>
-      <h2>{post.title}</h2>
-      <p>작성자: {post.author_id} | 작성일: {new Date(post.created_at).toLocaleDateString()}</p>
-      <div className="post-content">
-        {post.content.split('\n').map((line, index) => (
-          <p key={index}>{line}</p>
-        ))}
-      </div>
-      
-      <div className="comments-section">
-        <h3>댓글 ({comments.length})</h3>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white border border-gray-300 rounded p-8 w-full max-w-sm">
+        <h2 className="text-xl font-bold text-center mb-6">
+          {isSignup ? '회원가입' : '로그인'}
+        </h2>
         
-        {currentUser && (
-          <form onSubmit={handleAddComment} className="comment-form">
-            <textarea
-              value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              placeholder="댓글을 입력하세요..."
-              rows="3"
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="아이디"
+            value={formData.id}
+            onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+            required
+          />
+          
+          {isSignup && (
+            <input
+              type="text"
+              placeholder="닉네임"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+              required
             />
-            <button type="submit" disabled={loading}>
-              {loading ? '작성중...' : '댓글 작성'}
-            </button>
-          </form>
-        )}
-        
-        <div className="comments-list">
-          {comments.map(comment => (
-            <div key={comment.id} className="comment-item">
-              <p><strong>{comment.author_id}</strong> | {new Date(comment.created_at).toLocaleDateString()}</p>
-              <p>{comment.content}</p>
-              {comment.author_id === currentUser && (
-                <button onClick={() => onDeleteComment(comment.id)} className="delete-btn">
-                  삭제
-                </button>
-              )}
-            </div>
-          ))}
+          )}
+          
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+            required
+          />
+          
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition-colors disabled:opacity-50"
+          >
+            {loading ? '처리중...' : (isSignup ? '회원가입' : '로그인')}
+          </button>
+          
+          <button
+            onClick={() => setIsSignup(!isSignup)}
+            className="w-full text-blue-600 hover:text-blue-800 text-sm"
+          >
+            {isSignup ? '로그인으로 돌아가기' : '회원가입'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// 게시글 작성 컴포넌트
-function PostForm({ onSubmit, onCancel, initialData = null }) {
-  const [formData, setFormData] = useState({
-    title: initialData?.title || '',
-    content: initialData?.content || ''
-  });
+// 헤더 컴포넌트
+function Header({ currentUser, onLogout, onCreatePost }) {
+  return (
+    <header className="bg-white border-b border-gray-300">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-800">게시판</h1>
+        
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onCreatePost}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
+          >
+            <Plus className="w-4 h-4" />
+            <span>글쓰기</span>
+          </button>
+          
+          <span className="text-gray-700 text-sm">{currentUser}님</span>
+          
+          <button
+            onClick={onLogout}
+            className="text-gray-600 hover:text-red-600 text-sm"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// 검색바 (아카라이브 스타일)
+function SearchBar({ searchQuery, setSearchQuery, onSearch, onClear }) {
+  return (
+    <div className="bg-white border border-gray-300 rounded p-4">
+      <div className="flex space-x-2">
+        <input
+          type="text"
+          placeholder="검색어를 입력하세요"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && onSearch()}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+        />
+        <button
+          onClick={onSearch}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+        >
+          검색
+        </button>
+        <button
+          onClick={onClear}
+          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm"
+        >
+          전체
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 게시글 테이블 헤더
+function PostTableHeader() {
+  return (
+    <div className="bg-gray-100 border border-gray-300 rounded-t">
+      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm font-medium text-gray-700">
+        <div className="col-span-1 text-center">번호</div>
+        <div className="col-span-6">제목</div>
+        <div className="col-span-2 text-center">작성자</div>
+        <div className="col-span-2 text-center">작성일</div>
+        <div className="col-span-1 text-center">삭제</div>
+      </div>
+    </div>
+  );
+}
+
+// 게시글 행
+function PostRow({ post, index, onSelect, onDelete, currentUser, totalPosts, currentPage, postsPerPage }) {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = now - date;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays < 7) {
+      return `${diffDays}일 전`;
+    } else {
+      return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  // 게시글 번호 계산 (최신순으로 번호 매기기)
+  const postNumber = totalPosts - ((currentPage - 1) * postsPerPage + index);
+
+  return (
+    <div className="bg-white border-l border-r border-b border-gray-300 hover:bg-gray-50">
+      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm">
+        <div className="col-span-1 text-center text-gray-600">
+          {postNumber}
+        </div>
+        <div className="col-span-6">
+          <span
+            onClick={() => onSelect(post.id)}
+            className="text-gray-800 hover:text-blue-600 cursor-pointer hover:underline"
+          >
+            {post.title}
+          </span>
+          <span className="text-blue-600 ml-2 text-xs">[3]</span>
+        </div>
+        <div className="col-span-2 text-center text-gray-600">
+          {post.author_username}
+        </div>
+        <div className="col-span-2 text-center text-gray-500 text-xs">
+          {formatDate(post.created_at)}
+        </div>
+        <div className="col-span-1 text-center">
+          {post.author_id === currentUser && (
+            <button
+              onClick={() => onDelete(post.id)}
+              className="text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 게시글 목록 (테이블 형태)
+function PostList({ posts, onSelectPost, onDeletePost, currentUser }) {
+  return (
+    <div>
+      <PostTableHeader />
+      {posts.length === 0 ? (
+        <div className="bg-white border-l border-r border-b border-gray-300 py-12 text-center text-gray-500">
+          게시글이 없습니다.
+        </div>
+      ) : (
+        posts.map((post, index) => (
+          <PostRow
+            key={post.id}
+            post={post}
+            index={index}
+            onSelect={onSelectPost}
+            onDelete={onDeletePost}
+            currentUser={currentUser}
+            totalPosts={posts.length}
+            currentPage={1}
+            postsPerPage={10}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// 게시글 작성 폼 (심플하게)
+function PostForm({ onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({ title: '', content: '' });
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       alert('제목과 내용을 모두 입력해주세요.');
       return;
@@ -282,45 +336,60 @@ function PostForm({ onSubmit, onCancel, initialData = null }) {
   };
 
   return (
-    <div className="post-form">
-      <h3>{initialData ? '게시글 수정' : '게시글 작성'}</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="제목을 입력하세요"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          required
-        />
-        <textarea
-          placeholder="내용을 입력하세요"
-          value={formData.content}
-          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-          rows="10"
-          required
-        />
-        <div className="form-buttons">
-          <button type="submit" disabled={loading}>
-            {loading ? '저장중...' : '저장'}
-          </button>
-          <button type="button" onClick={onCancel}>취소</button>
+    <div className="bg-white border border-gray-300 rounded p-6">
+      <h2 className="text-lg font-bold mb-4">게시글 작성</h2>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+            placeholder="제목을 입력하세요"
+          />
         </div>
-      </form>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+          <textarea
+            value={formData.content}
+            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+            rows={12}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 resize-none"
+            placeholder="내용을 입력하세요"
+          />
+        </div>
+        
+        <div className="flex space-x-2 pt-4">
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            {loading ? '저장중...' : '작성완료'}
+          </button>
+          <button
+            onClick={onCancel}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+          >
+            취소
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-// 메인 앱 컴포넌트
-function App() {
+// 메인 앱
+export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [currentView, setCurrentView] = useState('list'); // 'list', 'detail', 'create'
+  const [currentView, setCurrentView] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 초기 로드
   useEffect(() => {
     checkAuth();
     loadPosts();
@@ -361,15 +430,7 @@ function App() {
   };
 
   const handleSelectPost = async (postId) => {
-    try {
-      const post = await api.getPost(postId);
-      const postComments = await api.getCommentsByPost(postId);
-      setSelectedPost(post);
-      setComments(postComments);
-      setCurrentView('detail');
-    } catch (error) {
-      alert('게시글 로드 실패');
-    }
+    alert('게시글 상세 페이지는 구현 예정입니다!');
   };
 
   const handleCreatePost = async (formData) => {
@@ -383,29 +444,8 @@ function App() {
       try {
         await api.deletePost(postId);
         loadPosts();
-        if (selectedPost?.id === postId) {
-          setCurrentView('list');
-        }
       } catch (error) {
         alert('삭제 실패');
-      }
-    }
-  };
-
-  const handleAddComment = async (postId, content) => {
-    await api.createComment({ post_id: postId, content });
-    const updatedComments = await api.getCommentsByPost(postId);
-    setComments(updatedComments);
-  };
-
-  const handleDeleteComment = async (commentId) => {
-    if (confirm('댓글을 삭제하시겠습니까?')) {
-      try {
-        await api.deleteComment(commentId);
-        const updatedComments = await api.getCommentsByPost(selectedPost.id);
-        setComments(updatedComments);
-      } catch (error) {
-        alert('댓글 삭제 실패');
       }
     }
   };
@@ -423,8 +463,19 @@ function App() {
     }
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    loadPosts();
+  };
+
   if (loading) {
-    return <div>로딩중...</div>;
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-600">로딩중...</div>
+        </div>
+      </div>
+    );
   }
 
   if (!currentUser) {
@@ -432,34 +483,22 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>게시판</h1>
-        <div className="header-controls">
-          <span>환영합니다, {currentUser}님!</span>
-          <button onClick={handleLogout}>로그아웃</button>
-        </div>
-      </header>
-
-      <main className="app-main">
+    <div className="min-h-screen bg-gray-100">
+      <Header 
+        currentUser={currentUser} 
+        onLogout={handleLogout}
+        onCreatePost={() => setCurrentView('create')}
+      />
+      
+      <main className="max-w-5xl mx-auto p-4 space-y-4">
         {currentView === 'list' && (
           <>
-            <div className="controls">
-              <div className="search-bar">
-                <input
-                  type="text"
-                  placeholder="검색어를 입력하세요"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <button onClick={handleSearch}>검색</button>
-                <button onClick={loadPosts}>전체보기</button>
-              </div>
-              <button onClick={() => setCurrentView('create')} className="create-btn">
-                게시글 작성
-              </button>
-            </div>
+            <SearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSearch={handleSearch}
+              onClear={handleClearSearch}
+            />
             <PostList
               posts={posts}
               onSelectPost={handleSelectPost}
@@ -467,17 +506,6 @@ function App() {
               currentUser={currentUser}
             />
           </>
-        )}
-
-        {currentView === 'detail' && selectedPost && (
-          <PostDetail
-            post={selectedPost}
-            comments={comments}
-            onBack={() => setCurrentView('list')}
-            onAddComment={handleAddComment}
-            onDeleteComment={handleDeleteComment}
-            currentUser={currentUser}
-          />
         )}
 
         {currentView === 'create' && (
@@ -490,5 +518,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
