@@ -183,8 +183,8 @@ function LoginForm({ onLogin }) {
 // 헤더 컴포넌트
 function Header({ currentUser, onLogout, onCreatePost }) {
   return (
-    <header className="bg-white border-b border-gray-300">
-      <div className="w-full px-4 py-3 flex items-center justify-between">
+    <header className="bg-white border-b border-gray-300 w-full">
+      <div className="w-full max-w-none px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">게시판</h1>
         
         <div className="flex items-center space-x-2 sm:space-x-4">
@@ -795,14 +795,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 w-full">
       <Header 
         currentUser={currentUser} 
         onLogout={handleLogout}
         onCreatePost={() => setCurrentView('create')}
       />
       
-      <main className="w-full px-4 py-4 space-y-4">
+      <main className="w-full max-w-none px-4 py-4 space-y-4">
         {currentView === 'list' && (
           <>
             <SearchBar
