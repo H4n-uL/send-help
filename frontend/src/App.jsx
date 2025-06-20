@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MessageCircle, User, LogOut, Plus, Calendar, Trash2 } from 'lucide-react';
+import { Search, MessageCircle, User, LogOut, Plus, Calendar, Trash2, ArrowLeft, Edit } from 'lucide-react';
 
 const API_BASE = '/api';
 
@@ -71,6 +71,30 @@ const api = {
   
   searchPosts: async (query) => {
     const response = await fetch(`${API_BASE}/posts/search?q=${encodeURIComponent(query)}`);
+    return response.json();
+  },
+
+  // 댓글 관련 API
+  getComments: async (postId) => {
+    const response = await fetch(`${API_BASE}/comments/post/${postId}`);
+    return response.json();
+  },
+
+  createComment: async (postId, data) => {
+    const response = await fetch(`${API_BASE}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, post_id: postId }),
+      credentials: 'include'
+    });
+    return response.json();
+  },
+
+  deleteComment: async (commentId) => {
+    const response = await fetch(`${API_BASE}/comments/${commentId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
     return response.json();
   }
 };
@@ -160,25 +184,26 @@ function LoginForm({ onLogin }) {
 function Header({ currentUser, onLogout, onCreatePost }) {
   return (
     <header className="bg-white border-b border-gray-300">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="w-full px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">게시판</h1>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <button
             onClick={onCreatePost}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-3 py-1 rounded text-sm flex items-center space-x-1"
           >
             <Plus className="w-4 h-4" />
-            <span>글쓰기</span>
+            <span className="hidden sm:inline">글쓰기</span>
           </button>
           
-          <span className="text-gray-700 text-sm">{currentUser}님</span>
+          <span className="text-gray-700 text-sm hidden sm:inline">{currentUser}님</span>
           
           <button
             onClick={onLogout}
             className="text-gray-600 hover:text-red-600 text-sm"
           >
-            로그아웃
+            <span className="hidden sm:inline">로그아웃</span>
+            <LogOut className="w-4 h-4 sm:hidden" />
           </button>
         </div>
       </div>
@@ -190,7 +215,7 @@ function Header({ currentUser, onLogout, onCreatePost }) {
 function SearchBar({ searchQuery, setSearchQuery, onSearch, onClear }) {
   return (
     <div className="bg-white border border-gray-300 rounded p-4">
-      <div className="flex space-x-2">
+      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
         <input
           type="text"
           placeholder="검색어를 입력하세요"
@@ -199,18 +224,20 @@ function SearchBar({ searchQuery, setSearchQuery, onSearch, onClear }) {
           onKeyPress={(e) => e.key === 'Enter' && onSearch()}
           className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
         />
-        <button
-          onClick={onSearch}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-        >
-          검색
-        </button>
-        <button
-          onClick={onClear}
-          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm"
-        >
-          전체
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={onSearch}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm whitespace-nowrap"
+          >
+            검색
+          </button>
+          <button
+            onClick={onClear}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm whitespace-nowrap"
+          >
+            전체
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -220,11 +247,11 @@ function SearchBar({ searchQuery, setSearchQuery, onSearch, onClear }) {
 function PostTableHeader() {
   return (
     <div className="bg-gray-100 border border-gray-300 rounded-t">
-      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm font-medium text-gray-700">
+      <div className="grid grid-cols-12 gap-2 lg:gap-4 px-2 lg:px-4 py-3 text-sm font-medium text-gray-700">
         <div className="col-span-1 text-center">번호</div>
-        <div className="col-span-6">제목</div>
+        <div className="col-span-5 lg:col-span-6">제목</div>
         <div className="col-span-2 text-center">작성자</div>
-        <div className="col-span-2 text-center">작성일</div>
+        <div className="col-span-3 lg:col-span-2 text-center">작성일</div>
         <div className="col-span-1 text-center">삭제</div>
       </div>
     </div>
@@ -253,23 +280,23 @@ function PostRow({ post, index, onSelect, onDelete, currentUser, totalPosts, cur
 
   return (
     <div className="bg-white border-l border-r border-b border-gray-300 hover:bg-gray-50">
-      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm">
+      <div className="grid grid-cols-12 gap-2 lg:gap-4 px-2 lg:px-4 py-3 text-sm">
         <div className="col-span-1 text-center text-gray-600">
           {postNumber}
         </div>
-        <div className="col-span-6">
+        <div className="col-span-5 lg:col-span-6">
           <span
             onClick={() => onSelect(post.id)}
-            className="text-gray-800 hover:text-blue-600 cursor-pointer hover:underline"
+            className="text-gray-800 hover:text-blue-600 cursor-pointer hover:underline break-words"
           >
             {post.title}
           </span>
           <span className="text-blue-600 ml-2 text-xs">[3]</span>
         </div>
-        <div className="col-span-2 text-center text-gray-600">
+        <div className="col-span-2 text-center text-gray-600 truncate">
           {post.author_username}
         </div>
-        <div className="col-span-2 text-center text-gray-500 text-xs">
+        <div className="col-span-3 lg:col-span-2 text-center text-gray-500 text-xs">
           {formatDate(post.created_at)}
         </div>
         <div className="col-span-1 text-center">
@@ -311,6 +338,277 @@ function PostList({ posts, onSelectPost, onDeletePost, currentUser }) {
           />
         ))
       )}
+    </div>
+  );
+}
+
+// 댓글 컴포넌트
+function CommentItem({ comment, onDelete, currentUser }) {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="border-b border-gray-200 py-3">
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center space-x-2">
+          <span className="font-medium text-gray-800">{comment.author_username}</span>
+          <span className="text-xs text-gray-500">{formatDate(comment.created_at)}</span>
+        </div>
+        {comment.author_id === currentUser && (
+          <button
+            onClick={() => onDelete(comment.id)}
+            className="text-gray-400 hover:text-red-500 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <div className="text-gray-700 whitespace-pre-wrap">{comment.content}</div>
+    </div>
+  );
+}
+
+// 댓글 작성 폼
+function CommentForm({ onSubmit }) {
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!content.trim()) {
+      alert('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await onSubmit({ content });
+      setContent('');
+    } catch (error) {
+      alert('댓글 작성 실패');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4">
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="댓글을 입력하세요..."
+        rows={3}
+        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 resize-none"
+      />
+      <div className="flex justify-end mt-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+        >
+          {loading ? '작성중...' : '댓글 작성'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// 게시글 상세 페이지
+function PostDetail({ postId, onBack, currentUser }) {
+  const [post, setPost] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadPostDetail();
+    loadComments();
+  }, [postId]);
+
+  const loadPostDetail = async () => {
+    try {
+      const response = await api.getPost(postId);
+      setPost(response);
+    } catch (error) {
+      console.error('게시글 로드 실패:', error);
+      alert('게시글을 불러올 수 없습니다.');
+      onBack();
+    }
+  };
+
+  const loadComments = async () => {
+    try {
+      const comments = await api.getComments(postId);
+      setComments(comments);
+    } catch (error) {
+      console.error('댓글 로드 실패:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleDeletePost = async () => {
+    if (confirm('정말 이 게시글을 삭제하시겠습니까?')) {
+      try {
+        await api.deletePost(postId);
+        alert('게시글이 삭제되었습니다.');
+        onBack();
+      } catch (error) {
+        alert('게시글 삭제 실패');
+      }
+    }
+  };
+
+  const handleCommentSubmit = async (commentData) => {
+    try {
+      await api.createComment(postId, commentData);
+      loadComments(); // 댓글 목록 새로고침
+      alert('댓글이 작성되었습니다.');
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
+      try {
+        await api.deleteComment(commentId);
+        loadComments(); // 댓글 목록 새로고침
+        alert('댓글이 삭제되었습니다.');
+      } catch (error) {
+        alert('댓글 삭제 실패');
+      }
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-300 rounded p-8 text-center">
+        <div className="text-gray-600">로딩중...</div>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="bg-white border border-gray-300 rounded p-8 text-center">
+        <div className="text-red-600">게시글을 찾을 수 없습니다.</div>
+        <button 
+          onClick={onBack}
+          className="mt-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm"
+        >
+          목록으로 돌아가기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 뒤로가기 버튼 */}
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={onBack}
+          className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 text-sm"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>목록으로</span>
+        </button>
+      </div>
+
+      {/* 게시글 내용 */}
+      <div className="bg-white border border-gray-300 rounded">
+        {/* 게시글 헤더 */}
+        <div className="border-b border-gray-200 px-6 py-4">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-gray-800 mb-2">{post.title}</h1>
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <span className="flex items-center space-x-1">
+                  <User className="w-4 h-4" />
+                  <span>{post.author_username}</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <Calendar className="w-4 h-4" />
+                  <span>{formatDate(post.created_at)}</span>
+                </span>
+              </div>
+            </div>
+            {post.author_id === currentUser && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => alert('수정 기능은 구현 예정입니다!')}
+                  className="text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <Edit className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleDeletePost}
+                  className="text-gray-500 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 게시글 본문 */}
+        <div className="px-6 py-6">
+          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+            {post.content}
+          </div>
+        </div>
+      </div>
+
+      {/* 댓글 섹션 */}
+      <div className="bg-white border border-gray-300 rounded">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+            <MessageCircle className="w-5 h-5" />
+            <span>댓글 ({comments.length})</span>
+          </h2>
+        </div>
+
+        <div className="px-6 py-4">
+          {/* 댓글 목록 */}
+          {comments.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              첫 번째 댓글을 남겨보세요!
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {comments.map(comment => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  onDelete={handleDeleteComment}
+                  currentUser={currentUser}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 댓글 작성 폼 */}
+          <CommentForm onSubmit={handleCommentSubmit} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -387,6 +685,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [currentView, setCurrentView] = useState('list');
+  const [selectedPostId, setSelectedPostId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -430,7 +729,14 @@ export default function App() {
   };
 
   const handleSelectPost = async (postId) => {
-    alert('게시글 상세 페이지는 구현 예정입니다!');
+    setSelectedPostId(postId);
+    setCurrentView('detail');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setSelectedPostId(null);
+    loadPosts(); // 목록 새로고침
   };
 
   const handleCreatePost = async (formData) => {
@@ -443,7 +749,13 @@ export default function App() {
     if (confirm('정말 삭제하시겠습니까?')) {
       try {
         await api.deletePost(postId);
-        loadPosts();
+        if (currentView === 'detail') {
+          // 상세 페이지에서 삭제한 경우 목록으로 돌아가기
+          handleBackToList();
+        } else {
+          // 목록에서 삭제한 경우 목록 새로고침
+          loadPosts();
+        }
       } catch (error) {
         alert('삭제 실패');
       }
@@ -490,7 +802,7 @@ export default function App() {
         onCreatePost={() => setCurrentView('create')}
       />
       
-      <main className="max-w-5xl mx-auto p-4 space-y-4">
+      <main className="w-full px-4 py-4 space-y-4">
         {currentView === 'list' && (
           <>
             <SearchBar
@@ -506,6 +818,14 @@ export default function App() {
               currentUser={currentUser}
             />
           </>
+        )}
+
+        {currentView === 'detail' && selectedPostId && (
+          <PostDetail
+            postId={selectedPostId}
+            onBack={handleBackToList}
+            currentUser={currentUser}
+          />
         )}
 
         {currentView === 'create' && (
