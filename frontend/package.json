@@ -11,12 +11,22 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "4.1.10",
+    "@tiptap/extension-character-count": "^2.22.1",
+    "@tiptap/extension-image": "^2.22.1",
+    "@tiptap/extension-link": "^2.22.1",
+    "@tiptap/extension-placeholder": "^2.22.1",
+    "@tiptap/pm": "^2.22.1",
+    "@tiptap/react": "^2.22.1",
+    "@tiptap/starter-kit": "^2.22.1",
+    "@uiw/react-md-editor": "^4.0.7",
+    "dompurify": "^3.2.6",
     "lucide-react": "0.518.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/js": "9.29.0",
+    "@types/dompurify": "^3.0.5",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
     "@vitejs/plugin-react": "4.5.2",
