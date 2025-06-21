@@ -291,7 +291,9 @@ function PostRow({ post, index, onSelect, onDelete, currentUser, totalPosts, cur
           >
             {post.title}
           </span>
-          <span className="text-blue-600 ml-2 text-xs">[3]</span>
+          {post.comment_count > 0 && (
+            <span className="text-blue-600 ml-2 text-xs">[{post.comment_count}]</span>
+          )}
         </div>
         <div className="col-span-2 text-center text-gray-600 truncate">
           {post.author_username}
