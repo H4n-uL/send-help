@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Cookie, Response, Query, Depends
+from fastapi import FastAPI, HTTPException, Cookie, Response, Query, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
@@ -9,6 +10,7 @@ import bcrypt
 import uuid
 import json
 import os
+import shutil
 from typing import Optional, List
 
 # =============================================================================
@@ -70,6 +72,14 @@ class Comment(Base):
 Base.metadata.create_all(bind=engine)
 
 # =============================================================================
+# 업로드 디렉터리 설정
+# =============================================================================
+
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+# =============================================================================
 # Pydantic 모델들
 # =============================================================================
 
@@ -104,6 +114,13 @@ class CommentResponse(BaseModel):
     created_at: datetime
     author_id: str
     author_username: str
+
+class UploadResponse(BaseModel):
+    url: str
+    filename: str
+    size: int
+    type: str
+    mime_type: str
 
 # =============================================================================
 # 세션 관리 (파일 기반)
@@ -165,6 +182,49 @@ def get_current_user(session_id: Optional[str] = Cookie(None)):
     return user_id
 
 # =============================================================================
+# 파일 업로드 유틸리티
+# =============================================================================
+
+def get_file_type(filename: str) -> str:
+    """파일 확장자를 기반으로 파일 타입 결정"""
+    extension = filename.lower().split('.')[-1] if '.' in filename else ''
+    
+    image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
+    video_extensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv']
+    audio_extensions = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a']
+    
+    if extension in image_extensions:
+        return 'image'
+    elif extension in video_extensions:
+        return 'video'
+    elif extension in audio_extensions:
+        return 'audio'
+    else:
+        return 'file'
+
+def save_upload_file(file: UploadFile) -> dict:
+    """업로드된 파일을 저장하고 정보 반환"""
+    # 파일명 생성 (중복 방지)
+    file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
+    unique_filename = f"{uuid.uuid4()}.{file_ext}" if file_ext else str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    
+    # 파일 저장
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # 파일 크기 계산
+    file_size = os.path.getsize(file_path)
+    
+    return {
+        "url": f"/uploads/{unique_filename}",
+        "filename": file.filename,
+        "size": file_size,
+        "type": get_file_type(file.filename),
+        "mime_type": file.content_type or "application/octet-stream"
+    }
+
+# =============================================================================
 # FastAPI 앱
 # =============================================================================
 
@@ -172,11 +232,14 @@ app = FastAPI(title="Simple Board")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5009"],
+    allow_origins=["http://localhost:5009", "http://dj.kmis.kr:5009"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 정적 파일 서빙 (업로드된 파일들)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # =============================================================================
 # 인증 API
@@ -232,13 +295,59 @@ async def get_me(current_user: str = Depends(get_current_user)):
     return {"user_id": current_user}
 
 # =============================================================================
+# 파일 업로드 API
+# =============================================================================
+
+@app.post("/api/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: str = Depends(get_current_user)
+):
+    """단일 파일 업로드"""
+    try:
+        # 파일 크기 제한 (10MB)
+        max_size = 10 * 1024 * 1024  # 10MB
+        file.file.seek(0, 2)  # 파일 끝으로 이동
+        file_size = file.file.tell()  # 현재 위치 = 파일 크기
+        file.file.seek(0)  # 파일 시작으로 돌아가기
+        
+        if file_size > max_size:
+            raise HTTPException(status_code=413, detail="File too large")
+        
+        # 파일 저장
+        result = save_upload_file(file)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.post("/api/upload/multiple")
+async def upload_multiple_files(
+    files: List[UploadFile] = File(...),
+    current_user: str = Depends(get_current_user)
+):
+    """다중 파일 업로드"""
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Too many files")
+    
+    results = []
+    for file in files:
+        try:
+            result = save_upload_file(file)
+            results.append(result)
+        except Exception as e:
+            results.append({"error": f"Failed to upload {file.filename}: {str(e)}"})
+    
+    return {"files": results}
+
+# =============================================================================
 # 게시글 API
 # =============================================================================
 
 @app.get("/api/posts")
 async def get_posts(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
     offset = (page - 1) * limit
-    posts = db.query(Post).offset(offset).limit(limit).all()
+    posts = db.query(Post).order_by(Post.created_at.desc()).offset(offset).limit(limit).all()
     
     post_list = []
     for post in posts:
@@ -313,7 +422,7 @@ async def delete_post(
 async def search_posts(q: str, db: Session = Depends(get_db)):
     posts = db.query(Post).filter(
         Post.title.contains(q) | Post.content.contains(q)
-    ).all()
+    ).order_by(Post.created_at.desc()).all()
     
     post_list = []
     for post in posts:
@@ -334,7 +443,7 @@ async def search_posts(q: str, db: Session = Depends(get_db)):
 
 @app.get("/api/comments/post/{post_id}")
 async def get_comments(post_id: int, db: Session = Depends(get_db)):
-    comments = db.query(Comment).filter(Comment.post_id == post_id).all()
+    comments = db.query(Comment).filter(Comment.post_id == post_id).order_by(Comment.created_at.asc()).all()
     
     comment_list = []
     for comment in comments:

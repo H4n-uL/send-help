@@ -3,3 +3,5 @@ uvicorn
 sqlalchemy
 bcrypt
 psycopg2-binary
+python-multipart
+aiofiles
