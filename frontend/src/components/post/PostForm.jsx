@@ -168,7 +168,7 @@ const PostForm = ({ onSubmit, onCancel, initialData = null }) => {
               <div className="flex items-center space-x-2">
                 <Save className="w-4 h-4" />
                 <span>
-                  {loading ? '저장중...' : (initialData ? '수정완료' : '작성완료')}
+                  {loading ? '저장중...' : (initialData ? '수정완료' : '업로드')}
                 </span>
               </div>
             </button>

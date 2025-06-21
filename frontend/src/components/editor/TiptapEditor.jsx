@@ -1,5 +1,5 @@
 // components/editor/TiptapEditor.jsx
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -9,7 +9,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { 
   Bold, Italic, Strikethrough, Code, List, ListOrdered, 
   Quote, Undo, Redo, Image as ImageIcon, Link as LinkIcon,
-  Upload, Type, Heading1, Heading2
+  Upload, Heading1, Heading2
 } from 'lucide-react';
 import { uploadAPI } from '../../services/api';
 import { formatFileSize } from '../../utils/dateUtils';
@@ -17,6 +17,7 @@ import { formatFileSize } from '../../utils/dateUtils';
 // 툴바 버튼 컴포넌트
 const ToolbarButton = ({ onClick, isActive, disabled, children, title }) => (
   <button
+    type="button"
     onClick={onClick}
     disabled={disabled}
     title={title}
@@ -32,7 +33,7 @@ const ToolbarButton = ({ onClick, isActive, disabled, children, title }) => (
 const Divider = () => <div className="w-px h-6 bg-gray-300 mx-1" />;
 
 const TiptapEditor = ({ 
-  content, 
+  content = '', 
   onChange, 
   placeholder = "내용을 입력하세요...",
   minHeight = 300 
@@ -43,12 +44,20 @@ const TiptapEditor = ({
         heading: {
           levels: [1, 2, 3],
         },
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
       }),
       Image.configure({
         inline: false,
         allowBase64: false,
         HTMLAttributes: {
-          class: 'max-w-full h-auto rounded-lg',
+          class: 'max-w-full h-auto rounded-lg my-4',
         },
       }),
       Link.configure({
@@ -59,22 +68,47 @@ const TiptapEditor = ({
       }),
       Placeholder.configure({
         placeholder,
+        emptyEditorClass: 'is-editor-empty',
       }),
       CharacterCount,
     ],
-    content,
+    content: content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      if (onChange) {
+        onChange(html);
+      }
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+        class: 'prose prose-sm max-w-none focus:outline-none p-4',
+        style: `min-height: ${minHeight}px;`,
       },
     },
+    immediatelyRender: false,
   });
+
+  // content prop이 변경될 때 에디터 내용 업데이트
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content, false);
+    }
+  }, [editor, content]);
+
+  // 에디터가 마운트되면 포커스
+  useEffect(() => {
+    if (editor) {
+      // 약간의 지연 후 포커스 (렌더링 완료 후)
+      setTimeout(() => {
+        editor.commands.focus();
+      }, 100);
+    }
+  }, [editor]);
 
   // 이미지 삽입
   const addImage = useCallback(async () => {
+    if (!editor) return;
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -104,6 +138,8 @@ const TiptapEditor = ({
 
   // 파일 첨부
   const addFile = useCallback(async () => {
+    if (!editor) return;
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
@@ -165,6 +201,8 @@ const TiptapEditor = ({
 
   // 링크 추가
   const addLink = useCallback(() => {
+    if (!editor) return;
+    
     const url = window.prompt('URL을 입력하세요:');
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
@@ -174,6 +212,8 @@ const TiptapEditor = ({
   // 드래그 앤 드롭 처리
   const handleDrop = useCallback(async (event) => {
     event.preventDefault();
+    if (!editor) return;
+    
     const files = Array.from(event.dataTransfer.files);
     
     for (const file of files) {
@@ -207,9 +247,14 @@ const TiptapEditor = ({
     }
   }, [editor]);
 
+  const handleDragOver = useCallback((event) => {
+    event.preventDefault();
+  }, []);
+
   if (!editor) {
     return (
       <div className="border border-gray-300 rounded-lg p-8 text-center text-gray-500">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
         에디터 로딩중...
       </div>
     );
@@ -339,14 +384,20 @@ const TiptapEditor = ({
       
       {/* 에디터 영역 */}
       <div 
-        className="p-4"
-        style={{ minHeight: `${minHeight}px` }}
+        className="relative"
         onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={handleDragOver}
+        onClick={() => editor.commands.focus()}
       >
         <EditorContent 
           editor={editor} 
-          className="focus:outline-none"
+          className="focus:outline-none [&_.ProseMirror]:focus:outline-none"
+        />
+        
+        {/* 플레이스홀더가 보이지 않을 때를 위한 최소 높이 보장 */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{ minHeight: `${minHeight}px` }}
         />
       </div>
       

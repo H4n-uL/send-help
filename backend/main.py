@@ -354,7 +354,6 @@ async def get_posts(page: int = 1, limit: int = 10, db: Session = Depends(get_db
         post_list.append({
             "id": post.id,
             "title": post.title,
-            "content": post.content,
             "created_at": post.created_at,
             "author_id": post.author_id,
             "author_username": post.author.username
