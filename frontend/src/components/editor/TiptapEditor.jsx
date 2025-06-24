@@ -1,4 +1,4 @@
-// components/editor/TiptapEditor.jsx
+// components/editor/TiptapEditor.jsx - 개선된 버전
 import React, { useCallback, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -9,10 +9,9 @@ import CharacterCount from '@tiptap/extension-character-count';
 import { 
   Bold, Italic, Strikethrough, Code, List, ListOrdered, 
   Quote, Undo, Redo, Image as ImageIcon, Link as LinkIcon,
-  Upload, Heading1, Heading2
+  Upload, Heading1, Heading2, FileText, AlertCircle
 } from 'lucide-react';
-import { uploadAPI } from '../../services/api';
-import { formatFileSize } from '../../utils/dateUtils';
+import { fileManager, formatFileSize } from '../../utils/fileManager';
 
 // 툴바 버튼 컴포넌트
 const ToolbarButton = ({ onClick, isActive, disabled, children, title }) => (
@@ -38,6 +37,9 @@ const TiptapEditor = ({
   placeholder = "내용을 입력하세요...",
   minHeight = 300 
 }) => {
+  const [tempFileCount, setTempFileCount] = React.useState(0);
+  const [totalSize, setTotalSize] = React.useState(0);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -88,6 +90,12 @@ const TiptapEditor = ({
     immediatelyRender: false,
   });
 
+  // 임시 파일 상태 업데이트
+  const updateTempFileStats = useCallback(() => {
+    setTempFileCount(fileManager.getTempFileCount());
+    setTotalSize(fileManager.getTotalSize());
+  }, []);
+
   // content prop이 변경될 때 에디터 내용 업데이트
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
@@ -98,14 +106,21 @@ const TiptapEditor = ({
   // 에디터가 마운트되면 포커스
   useEffect(() => {
     if (editor) {
-      // 약간의 지연 후 포커스 (렌더링 완료 후)
       setTimeout(() => {
         editor.commands.focus();
       }, 100);
     }
   }, [editor]);
 
-  // 이미지 삽입
+  // 파일을 임시로 추가하는 함수
+  const addTempFile = useCallback((file) => {
+    const tempFileData = fileManager.addTempFile(file);
+    updateTempFileStats();
+    
+    return tempFileData;
+  }, [updateTempFileStats]);
+
+  // 이미지 삽입 (임시 저장)
   const addImage = useCallback(async () => {
     if (!editor) return;
     
@@ -118,25 +133,29 @@ const TiptapEditor = ({
       const files = Array.from(e.target.files);
       
       for (const file of files) {
-        try {
-          const result = await uploadAPI.uploadFile(file);
-          if (result.type === 'image') {
-            editor.chain().focus().setImage({ 
-              src: result.url, 
-              alt: result.filename 
-            }).run();
-          }
-        } catch (error) {
-          console.error('이미지 업로드 실패:', error);
-          alert(`이미지 업로드 실패: ${file.name}`);
+        // 파일 크기 체크 (10MB 제한)
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`파일이 너무 큽니다: ${file.name} (최대 10MB)`);
+          continue;
+        }
+        
+        const tempFileData = addTempFile(file);
+        
+        if (tempFileData.type === 'image') {
+          // 임시 URL로 이미지 삽입
+          editor.chain().focus().setImage({ 
+            src: tempFileData.tempUrl, 
+            alt: tempFileData.filename,
+            'data-temp-id': tempFileData.tempId // 나중에 실제 URL로 교체하기 위한 식별자
+          }).run();
         }
       }
     };
     
     input.click();
-  }, [editor]);
+  }, [editor, addTempFile]);
 
-  // 파일 첨부
+  // 파일 첨부 (임시 저장)
   const addFile = useCallback(async () => {
     if (!editor) return;
     
@@ -148,56 +167,64 @@ const TiptapEditor = ({
       const files = Array.from(e.target.files);
       
       for (const file of files) {
-        try {
-          const result = await uploadAPI.uploadFile(file);
-          
-          if (result.type === 'image') {
-            editor.chain().focus().setImage({ 
-              src: result.url, 
-              alt: result.filename 
-            }).run();
-          } else if (result.type === 'video') {
-            editor.chain().focus().insertContent(`
-              <div class="my-4">
-                <video controls class="w-full max-w-2xl rounded-lg">
-                  <source src="${result.url}" type="${result.mime_type}">
-                  브라우저가 비디오를 지원하지 않습니다.
-                </video>
+        // 파일 크기 체크 (10MB 제한)
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`파일이 너무 큽니다: ${file.name} (최대 10MB)`);
+          continue;
+        }
+        
+        const tempFileData = addTempFile(file);
+        
+        if (tempFileData.type === 'image') {
+          // 이미지는 이미지로 삽입
+          editor.chain().focus().setImage({ 
+            src: tempFileData.tempUrl, 
+            alt: tempFileData.filename,
+            'data-temp-id': tempFileData.tempId
+          }).run();
+        } else if (tempFileData.type === 'video') {
+          // 비디오 삽입
+          editor.chain().focus().insertContent(`
+            <div class="my-4" data-temp-id="${tempFileData.tempId}">
+              <video controls class="w-full max-w-2xl rounded-lg">
+                <source src="${tempFileData.tempUrl}" type="${tempFileData.mime_type}">
+                브라우저가 비디오를 지원하지 않습니다.
+              </video>
+              <p class="text-sm text-gray-500 mt-1">📹 ${tempFileData.filename} (${formatFileSize(tempFileData.size)})</p>
+            </div>
+          `).run();
+        } else if (tempFileData.type === 'audio') {
+          // 오디오 삽입
+          editor.chain().focus().insertContent(`
+            <div class="my-4" data-temp-id="${tempFileData.tempId}">
+              <audio controls class="w-full">
+                <source src="${tempFileData.tempUrl}" type="${tempFileData.mime_type}">
+                브라우저가 오디오를 지원하지 않습니다.
+              </audio>
+              <p class="text-sm text-gray-500 mt-1">🎵 ${tempFileData.filename} (${formatFileSize(tempFileData.size)})</p>
+            </div>
+          `).run();
+        } else {
+          // 일반 파일은 다운로드 링크로 (임시 URL 사용)
+          const fileSize = formatFileSize(tempFileData.size);
+          editor.chain().focus().insertContent(`
+            <div class="border border-gray-300 rounded-lg p-3 my-2 bg-gray-50 hover:bg-gray-100 transition-colors" data-temp-id="${tempFileData.tempId}">
+              <div class="flex items-center space-x-2 text-gray-700">
+                <span class="text-lg">📎</span>
+                <div class="flex-1">
+                  <div class="font-medium">${tempFileData.filename}</div>
+                  <div class="text-sm text-gray-500">${fileSize} • 업로드 대기중</div>
+                </div>
+                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">임시</span>
               </div>
-            `).run();
-          } else if (result.type === 'audio') {
-            editor.chain().focus().insertContent(`
-              <div class="my-4">
-                <audio controls class="w-full">
-                  <source src="${result.url}" type="${result.mime_type}">
-                  브라우저가 오디오를 지원하지 않습니다.
-                </audio>
-              </div>
-            `).run();
-          } else {
-            // 일반 파일은 다운로드 링크로
-            const fileSize = formatFileSize(result.size);
-            editor.chain().focus().insertContent(`
-              <div class="border border-gray-300 rounded-lg p-3 my-2 bg-gray-50 hover:bg-gray-100 transition-colors">
-                <a href="${result.url}" download="${result.filename}" class="flex items-center space-x-2 text-gray-700 no-underline">
-                  <span class="text-lg">📎</span>
-                  <div class="flex-1">
-                    <div class="font-medium">${result.filename}</div>
-                    <div class="text-sm text-gray-500">${fileSize}</div>
-                  </div>
-                </a>
-              </div>
-            `).run();
-          }
-        } catch (error) {
-          console.error('파일 업로드 실패:', error);
-          alert(`파일 업로드 실패: ${file.name}`);
+            </div>
+          `).run();
         }
       }
     };
     
     input.click();
-  }, [editor]);
+  }, [editor, addTempFile]);
 
   // 링크 추가
   const addLink = useCallback(() => {
@@ -209,7 +236,7 @@ const TiptapEditor = ({
     }
   }, [editor]);
 
-  // 드래그 앤 드롭 처리
+  // 드래그 앤 드롭 처리 (임시 저장)
   const handleDrop = useCallback(async (event) => {
     event.preventDefault();
     if (!editor) return;
@@ -217,35 +244,38 @@ const TiptapEditor = ({
     const files = Array.from(event.dataTransfer.files);
     
     for (const file of files) {
-      try {
-        const result = await uploadAPI.uploadFile(file);
-        
-        if (result.type === 'image') {
-          editor.chain().focus().setImage({ 
-            src: result.url, 
-            alt: result.filename 
-          }).run();
-        } else {
-          // 다른 파일들은 addFile과 동일한 로직
-          const fileSize = formatFileSize(result.size);
-          editor.chain().focus().insertContent(`
-            <div class="border border-gray-300 rounded-lg p-3 my-2 bg-gray-50">
-              <a href="${result.url}" download="${result.filename}" class="flex items-center space-x-2 text-gray-700 no-underline">
-                <span class="text-lg">📎</span>
-                <div>
-                  <div class="font-medium">${result.filename}</div>
-                  <div class="text-sm text-gray-500">${fileSize}</div>
-                </div>
-              </a>
+      // 파일 크기 체크
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`파일이 너무 큽니다: ${file.name} (최대 10MB)`);
+        continue;
+      }
+      
+      const tempFileData = addTempFile(file);
+      
+      if (tempFileData.type === 'image') {
+        editor.chain().focus().setImage({ 
+          src: tempFileData.tempUrl, 
+          alt: tempFileData.filename,
+          'data-temp-id': tempFileData.tempId
+        }).run();
+      } else {
+        // 다른 파일들은 addFile과 동일한 로직
+        const fileSize = formatFileSize(tempFileData.size);
+        editor.chain().focus().insertContent(`
+          <div class="border border-gray-300 rounded-lg p-3 my-2 bg-gray-50" data-temp-id="${tempFileData.tempId}">
+            <div class="flex items-center space-x-2 text-gray-700">
+              <span class="text-lg">📎</span>
+              <div class="flex-1">
+                <div class="font-medium">${tempFileData.filename}</div>
+                <div class="text-sm text-gray-500">${fileSize} • 업로드 대기중</div>
+              </div>
+              <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">임시</span>
             </div>
-          `).run();
-        }
-      } catch (error) {
-        console.error('드롭 업로드 실패:', error);
-        alert(`파일 업로드 실패: ${file.name}`);
+          </div>
+        `).run();
       }
     }
-  }, [editor]);
+  }, [editor, addTempFile]);
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault();
@@ -344,14 +374,14 @@ const TiptapEditor = ({
         
         <ToolbarButton
           onClick={addImage}
-          title="이미지 삽입"
+          title="이미지 삽입 (임시 저장)"
         >
           <ImageIcon className="w-4 h-4" />
         </ToolbarButton>
         
         <ToolbarButton
           onClick={addFile}
-          title="파일 첨부"
+          title="파일 첨부 (임시 저장)"
         >
           <Upload className="w-4 h-4" />
         </ToolbarButton>
@@ -394,21 +424,14 @@ const TiptapEditor = ({
           className="focus:outline-none [&_.ProseMirror]:focus:outline-none"
         />
         
-        {/* 플레이스홀더가 보이지 않을 때를 위한 최소 높이 보장 */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{ minHeight: `${minHeight}px` }}
-        />
-      </div>
-      
-      {/* 하단 상태바 */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
-        <span>
-          {editor.storage.characterCount.characters()} 글자 · {editor.storage.characterCount.words()} 단어
-        </span>
-        <span className="text-gray-400 text-xs">
-          파일을 드래그하여 업로드하세요
-        </span>
+        {/* 드래그 앤 드롭 안내 */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-blue-50 bg-opacity-50 border-2 border-dashed border-blue-300 rounded-lg m-2"
+             style={{ minHeight: `${minHeight}px` }}>
+          <div className="text-blue-600 text-center">
+            <Upload className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm font-medium">파일을 드래그해서 첨부하세요(최대 10MB)</p>
+          </div>
+        </div>
       </div>
     </div>
   );
