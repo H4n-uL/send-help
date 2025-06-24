@@ -536,7 +536,7 @@ async def get_posts(page: int = 1, limit: int = 10, db: Session = Depends(get_db
                 "title": post.title,
                 "created_at": post.created_at,
                 "updated_at": post.updated_at,
-                "view_count": post.view_count,
+                "views": post.view_count,
                 "author_id": post.author_id,
                 "author_username": post.author.username,
                 "comment_count": len(post.comments)
