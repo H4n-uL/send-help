@@ -29,7 +29,7 @@ const Header = ({ currentUser, onLogout, onCreatePost, onGoHome, currentView }) 
         <div className="flex items-center space-x-2 sm:space-x-4">
           <button
             onClick={onCreatePost}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm flex items-center space-x-1 transition-colors"
+            className="flex items-center space-x-2 text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">글쓰기</span>

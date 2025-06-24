@@ -1,6 +1,6 @@
 // components/post/PostList.jsx
 import React, { useState } from 'react';
-import { Search, Trash2, MessageCircle, Eye } from 'lucide-react';
+import { Search, Trash2, MessageCircle, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/dateUtils';
 
 // 검색바 컴포넌트
@@ -28,13 +28,13 @@ const SearchBar = ({ searchQuery, setSearchQuery, onSearch, onClear }) => {
         <div className="flex space-x-2">
           <button
             onClick={onSearch}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm whitespace-nowrap transition-colors"
+            className="flex items-center space-x-2 text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors"
           >
             검색
           </button>
           <button
             onClick={onClear}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm whitespace-nowrap transition-colors"
+            className="flex items-center space-x-2 text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors"
           >
             전체
           </button>
@@ -50,11 +50,12 @@ const PostTableHeader = () => {
     <div className="bg-gray-100 border border-gray-300 rounded-t-lg">
       <div className="grid grid-cols-12 gap-2 lg:gap-4 px-3 lg:px-4 py-3 text-sm font-medium text-gray-700">
         <div className="col-span-1 text-center">번호</div>
-        <div className="col-span-5 lg:col-span-6">제목</div>
+        <div className="col-span-4 lg:col-span-5">제목</div>
         <div className="col-span-2 text-center hidden sm:block">작성자</div>
-        <div className="col-span-2 lg:col-span-2 text-center">작성일</div>
+        <div className="col-span-2 text-center">작성일</div>
         <div className="col-span-1 text-center">관리</div>
-        <div className="col-span-1 text-center hidden lg:block">조회</div>
+        <div className="col-span-1 text-center">조회</div>
+        <div className="col-span-1 text-center hidden lg:block">추천</div>
       </div>
     </div>
   );
@@ -91,9 +92,17 @@ const PostRow = ({
   };
 
   // 제목 길이 제한
-  const truncateTitle = (title, maxLength = 30) => {
+  const truncateTitle = (title, maxLength = 25) => {
     if (title.length <= maxLength) return title;
     return title.substring(0, maxLength) + '...';
+  };
+
+  // 추천/비추천 점수 계산
+  const getScoreColor = (upvotes, downvotes) => {
+    const score = upvotes - downvotes;
+    if (score > 0) return 'text-green-600';
+    if (score < 0) return 'text-red-600';
+    return 'text-gray-500';
   };
 
   return (
@@ -105,7 +114,7 @@ const PostRow = ({
         </div>
         
         {/* 제목 */}
-        <div className="col-span-5 lg:col-span-6 self-center">
+        <div className="col-span-4 lg:col-span-5 self-center">
           <div className="flex items-center space-x-2">
             <span
               onClick={() => onSelect(post.id)}
@@ -129,7 +138,7 @@ const PostRow = ({
         </div>
         
         {/* 작성일 */}
-        <div className="col-span-2 lg:col-span-2 text-center text-gray-500 text-xs self-center">
+        <div className="col-span-2 text-center text-gray-500 text-xs self-center">
           <div className="hidden sm:block">
             {formatRelativeTime(post.created_at)}
           </div>
@@ -153,11 +162,48 @@ const PostRow = ({
           )}
         </div>
         
-        {/* 조회수 (큰 화면에서만 표시) */}
-        <div className="col-span-1 text-center text-gray-500 text-xs self-center hidden lg:block">
+        {/* 조회수 */}
+        <div className="col-span-1 text-center text-gray-500 text-xs self-center">
           <div className="flex items-center justify-center space-x-1">
             <Eye className="w-3 h-3" />
-            <span>{post.view_count || 0}</span>
+            <span>{post.views || 0}</span>
+          </div>
+        </div>
+        
+        {/* 추천/비추천 (큰 화면에서만 표시) */}
+        <div className="col-span-1 text-center text-xs self-center hidden lg:block">
+          <div className="flex flex-col items-center space-y-1">
+            <div className="flex items-center space-x-1 text-green-600">
+              <ThumbsUp className="w-3 h-3" />
+              <span>{post.upvotes || 0}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-red-600">
+              <ThumbsDown className="w-3 h-3" />
+              <span>{post.downvotes || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* 모바일에서 추가 정보 표시 */}
+      <div className="lg:hidden px-3 pb-2">
+        <div className="flex justify-between items-center text-xs text-gray-500">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1">
+              <Eye className="w-3 h-3" />
+              <span>{post.views || 0}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-green-600">
+              <ThumbsUp className="w-3 h-3" />
+              <span>{post.upvotes || 0}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-red-600">
+              <ThumbsDown className="w-3 h-3" />
+              <span>{post.downvotes || 0}</span>
+            </div>
+          </div>
+          <div className={`font-medium ${getScoreColor(post.upvotes || 0, post.downvotes || 0)}`}>
+            점수: {(post.upvotes || 0) - (post.downvotes || 0)}
           </div>
         </div>
       </div>

@@ -163,12 +163,12 @@ const PostForm = ({ onSubmit, onCancel, initialData = null }) => {
             <button
               onClick={handleSubmit}
               disabled={loading || !title.trim() || !content.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors"
             >
               <div className="flex items-center space-x-2">
                 <Save className="w-4 h-4" />
                 <span>
-                  {loading ? '저장중...' : (initialData ? '수정완료' : '업로드')}
+                  {loading ? '저장중...' : '업로드'}
                 </span>
               </div>
             </button>
