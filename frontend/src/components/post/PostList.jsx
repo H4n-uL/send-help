@@ -171,7 +171,7 @@ const PostRow = ({
         </div>
         
         {/* 추천/비추천 (큰 화면에서만 표시) */}
-        <div className="col-span-1 text-center text-xs self-center hidden lg:block">
+        {/* <div className="col-span-1 text-center text-xs self-center hidden lg:block">
           <div className="flex flex-col items-center space-y-1">
             <div className="flex items-center space-x-1 text-green-600">
               <ThumbsUp className="w-3 h-3" />
@@ -182,7 +182,7 @@ const PostRow = ({
               <span>{post.downvotes || 0}</span>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
       
       {/* 모바일에서 추가 정보 표시 */}
